@@ -35,12 +35,20 @@ jobs:
         run: |
           buildozer android debug 2>&1 | tee build.log
 
+      - name: Find APK
+        run: |
+          echo "=== Mencari APK ==="
+          find . -type f -name "*.apk" -print
+          echo "=== Isi folder bin ==="
+          ls -lah bin || true
+
       - name: Upload APK
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: minecraftKw-v1-apk
-          path: bin/*.apk
+          path: |
+            **/*.apk
+          if-no-files-found: error
 
       - name: Upload build log
         if: always()
