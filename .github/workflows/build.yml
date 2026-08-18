@@ -24,7 +24,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             build-essential git zip unzip autoconf automake libtool \
-            pkg-config libltdl-dev libffi-dev
+            pkg-config libltdl-dev libffi-dev \
+            libssl-dev libsqlite3-dev zlib1g-dev
 
       - name: Install Buildozer
         run: |
@@ -37,17 +38,38 @@ jobs:
 
       - name: Find APK
         run: |
-          echo "=== Mencari APK ==="
+          echo "=== Mencari file APK ==="
           find . -type f -name "*.apk" -print
-          echo "=== Isi folder bin ==="
-          ls -lah bin || true
+
+          APK_COUNT=$(find . -type f -name "*.apk" | wc -l)
+
+          if [ "$APK_COUNT" -eq 0 ]; then
+            echo "❌ APK tidak ditemukan!"
+            echo ""
+            echo "=== Isi folder bin ==="
+            ls -lah bin/ 2>/dev/null || true
+            echo ""
+            echo "=== Isi folder .buildozer ==="
+            find .buildozer -maxdepth 5 -type f 2>/dev/null | head -100 || true
+            exit 1
+          fi
+
+          echo "✅ APK ditemukan:"
+          find . -type f -name "*.apk" -print
+
+      - name: Prepare APK
+        run: |
+          mkdir -p artifacts
+          APK=$(find . -type f -name "*.apk" | head -n 1)
+          echo "APK yang dipakai: $APK"
+          cp "$APK" artifacts/minecraftKw-v1.apk
+          ls -lh artifacts/minecraftKw-v1.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: minecraftKw-v1-apk
-          path: |
-            **/*.apk
+          path: artifacts/minecraftKw-v1.apk
           if-no-files-found: error
 
       - name: Upload build log
