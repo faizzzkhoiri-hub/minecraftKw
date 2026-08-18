@@ -1,4 +1,4 @@
-name: Build minecraftKw v1 APK (Debug)
+name: Build minecraftKw v1 APK
 
 on:
   workflow_dispatch:
@@ -23,100 +23,49 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            build-essential git zip unzip autoconf automake libtool \
-            pkg-config libltdl-dev libffi-dev \
-            libssl-dev libsqlite3-dev zlib1g-dev
+            build-essential \
+            git \
+            zip \
+            unzip \
+            autoconf \
+            automake \
+            libtool \
+            pkg-config \
+            libltdl-dev \
+            libffi-dev \
+            libssl-dev
 
       - name: Install Buildozer
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          pip install "buildozer==1.6.0" "cython<3.1"
-          buildozer --version
+          pip install "cython==0.29.36"
+          pip install "buildozer==1.6.0"
 
-      - name: Check buildozer.spec
+      - name: Clean previous Buildozer files
         run: |
-          echo "=== Checking buildozer.spec ==="
-          if [ -f buildozer.spec ]; then
-            echo "✅ buildozer.spec found"
-            echo ""
-            echo "=== First 50 lines of buildozer.spec ==="
-            head -50 buildozer.spec
-          else
-            echo "❌ buildozer.spec NOT found!"
-            echo "Current directory: $(pwd)"
-            echo "Files in root:"
-            ls -lah
-            exit 1
-          fi
+          rm -rf .buildozer
+          rm -rf bin
 
       - name: Build APK
         run: |
-          echo "=== Starting Buildozer build ==="
           buildozer android debug 2>&1 | tee build.log
-          BUILD_EXIT=$?
-          echo "Buildozer exit code: $BUILD_EXIT"
-          exit $BUILD_EXIT
-
-      - name: Debug - List all files after build
-        if: always()
-        run: |
-          echo "=== All .apk files ==="
-          find . -type f -name "*.apk" 2>/dev/null || echo "❌ No .apk files found"
-          
-          echo ""
-          echo "=== .buildozer directory structure ==="
-          if [ -d .buildozer ]; then
-            find .buildozer -type f \( -name "*.apk" -o -name "*.apk.idsig" \) 2>/dev/null || echo "No APK files in .buildozer"
-            echo ""
-            echo "=== Last 20 lines of .buildozer ==="
-            find .buildozer -type f | tail -20
-          else
-            echo "❌ .buildozer directory not found"
-          fi
-          
-          echo ""
-          echo "=== bin directory ==="
-          if [ -d bin ]; then
-            ls -lah bin/
-          else
-            echo "❌ bin directory not found"
-          fi
-          
-          echo ""
-          echo "=== Last 50 lines of build.log ==="
-          tail -50 build.log
 
       - name: Find APK
+        if: always()
         run: |
-          echo "=== Mencari file APK ==="
-          APK=$(find . -type f -name "*.apk" | head -n 1)
-          
-          if [ -z "$APK" ]; then
-            echo "❌ APK tidak ditemukan!"
-            echo ""
-            echo "=== ERROR SUMMARY ==="
-            echo "Build mungkin gagal. Lihat build.log untuk detail:"
-            grep -i "error\|failed\|exception" build.log | head -20 || echo "Tidak ada error patterns terlihat"
-            exit 1
-          fi
-          
-          echo "✅ APK ditemukan: $APK"
-          echo "APK_PATH=$APK" >> $GITHUB_ENV
-
-      - name: Prepare APK
-        run: |
-          mkdir -p artifacts
-          echo "APK path: $APK_PATH"
-          ls -lh "$APK_PATH"
-          cp "$APK_PATH" artifacts/minecraftKw-v1.apk
-          echo "✅ APK copied to artifacts/"
-          ls -lh artifacts/
+          echo "=== APK FILES ==="
+          find . -type f -name "*.apk" -print || true
+          echo "=== BIN DIRECTORY ==="
+          ls -lah bin 2>/dev/null || true
 
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: minecraftKw-v1-apk
-          path: artifacts/minecraftKw-v1.apk
+          path: |
+            bin/*.apk
+            **/*.apk
           if-no-files-found: error
 
       - name: Upload build log
@@ -125,12 +74,4 @@ jobs:
         with:
           name: minecraftKw-v1-build-log
           path: build.log
-          if-no-files-found: warn
-
-      - name: Upload .buildozer directory
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: buildozer-directory
-          path: .buildozer/
           if-no-files-found: warn
