@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -28,75 +29,121 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
+
           sudo apt-get install -y \
             build-essential \
             git \
             zip \
             unzip \
-            openjdk-17-jdk \
             autoconf \
             automake \
+            autopoint \
             libtool \
             pkg-config \
+            libltdl-dev \
+            libffi-dev \
+            libssl-dev \
             zlib1g-dev \
             libncurses5-dev \
             libncursesw5-dev \
-            libtinfo5 \
             cmake \
-            libffi-dev \
-            libssl-dev
+            ccache \
+            wget
 
-      - name: Install Python build tools
+      - name: Install Buildozer
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          python -m pip install "cython==0.29.36"
-          python -m pip install "buildozer==1.6.0"
 
-      - name: Check project files
+          python -m pip install \
+            "cython==0.29.36"
+
+          python -m pip install \
+            "buildozer==1.6.0"
+
+      - name: Check project
         run: |
           echo "=== PROJECT ==="
           ls -lah
-          echo "=== SPEC ==="
-          test -f buildozer.spec
-          echo "buildozer.spec OK"
-          echo "=== MAIN ==="
-          test -f main.py
-          echo "main.py OK"
 
-      - name: Clean Buildozer
+          echo "=== REQUIRED FILES ==="
+
+          test -f main.py
+          echo "OK: main.py"
+
+          test -f buildozer.spec
+          echo "OK: buildozer.spec"
+
+      - name: Clean old build
         run: |
           rm -rf .buildozer
           rm -rf bin
+
+          mkdir -p bin
 
       - name: Build APK
         shell: bash
         run: |
           set -o pipefail
-          buildozer android debug 2>&1 | tee build.log
 
-      - name: Verify APK
+          buildozer android debug \
+            2>&1 | tee build.log
+
+      - name: Find APK
         shell: bash
         run: |
-          echo "=== SEARCHING APK ==="
-          find . -type f -name "*.apk" -print
+          echo "================================"
+          echo "SEARCHING FOR APK"
+          echo "================================"
+
+          find . \
+            -type f \
+            -name "*.apk" \
+            -print
 
           APK_COUNT=$(find . -type f -name "*.apk" | wc -l)
 
+          echo "APK COUNT: $APK_COUNT"
+
           if [ "$APK_COUNT" -eq 0 ]; then
-            echo "ERROR: Buildozer selesai tetapi APK tidak ditemukan."
-            echo "Build dianggap gagal."
+            echo ""
+            echo "ERROR: APK TIDAK DITEMUKAN"
+            echo ""
+
+            echo "=== BIN ==="
+            ls -lah bin || true
+
+            echo ""
+            echo "=== BUILD DIRECTORY ==="
+            find .buildozer -maxdepth 5 -type f 2>/dev/null | head -200 || true
+
             exit 1
           fi
 
-          echo "APK ditemukan: $APK_COUNT"
+      - name: Prepare APK
+        shell: bash
+        run: |
+          mkdir -p artifacts
+
+          APK=$(find . \
+            -type f \
+            -name "*.apk" \
+            -print \
+            | head -n 1)
+
+          echo "APK:"
+          echo "$APK"
+
+          cp "$APK" \
+            artifacts/minecraftKw-v1.apk
+
+          ls -lh \
+            artifacts/minecraftKw-v1.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: minecraftKw-v1-apk
-          path: |
-            bin/*.apk
-            **/*.apk
+          path: artifacts/minecraftKw-v1.apk
           if-no-files-found: error
 
       - name: Upload build log
